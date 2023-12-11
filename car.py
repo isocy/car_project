@@ -9,8 +9,17 @@ lock = Lock()
 GPIO.setwarnings(False)
 
 
-def control_leftMotor():
-    pass
+def control_motor(MOTOR, dist_list):
+    GPIO.setup(MOTOR, GPIO.OUT)
+    pwm = GPIO.PWM(MOTOR, 100)
+    pwm.start(0)
+    
+    while True:
+        time.sleep(0.05)
+        if dist_list[1] > 20:
+            pwm.ChangeDutyCycle(25)
+        else:
+            pwm.ChangeDutyCycle(0)
 
 def read_dist(TRIG, ECHO, dist_list, dist_idx):
     GPIO.setup(TRIG, GPIO.OUT)
@@ -54,8 +63,8 @@ def read_dist(TRIG, ECHO, dist_list, dist_idx):
 
 
 if __name__ == '__main__':
-    LEFTMOTOR_PIN = 12
-    RIGHTMOTOR_PIN = 13
+    LEFT_MOTOR = 12
+    RIGHT_MOTOR = 13
     LEFT_TRIG = 17
     LEFT_ECHO = 27
     FRONT_TRIG = 4
@@ -78,17 +87,17 @@ if __name__ == '__main__':
     leftSonic_thread = Thread(target=read_dist, args=(LEFT_TRIG, LEFT_ECHO, dist, LEFT_DIST_IDX))
     frontSonic_thread = Thread(target=read_dist, args=(FRONT_TRIG, FRONT_ECHO, dist, FRONT_DIST_IDX))
     rightSonic_thread = Thread(target=read_dist, args=(RIGHT_TRIG, RIGHT_ECHO, dist, RIGHT_DIST_IDX))
-    #leftMotor_thread = Thread(target=control_leftMotor, args=(dist,))
+    leftMotor_thread = Thread(target=control_motor, args=(LEFT_MOTOR, dist))
+    rightMotor_thread = Thread(target=control_motor, args=(RIGHT_MOTOR, dist))
 
     leftSonic_thread.start()
     frontSonic_thread.start()
     rightSonic_thread.start()
-    
+    leftMotor_thread.start()
+    rightMotor_thread.start()
     
     leftSonic_thread.join()
     frontSonic_thread.join()
     rightSonic_thread.join()
-    
-    
-#    pwm_left = GPIO.PWM(LEFTMOTOR_PIN, PWM_FREQ)
-#    pwm_right = GPIO.PWM(RIGHTMOTOR_PIN, PWM_FREQ)
+    leftMotor_thread.join()
+    rightMotor_thread.join()
