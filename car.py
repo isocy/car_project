@@ -1,7 +1,12 @@
-from threading import Thread
+from threading import Thread, Lock
 import time
 
 import RPi.GPIO as GPIO
+
+
+lock = Lock()
+
+GPIO.setwarnings(False)
 
 
 def control_leftMotor():
@@ -15,6 +20,7 @@ def read_dist(TRIG, ECHO, dist_list, dist_idx):
     dist_hist = []
     
     while True:
+        time.sleep(0.1)
         GPIO.output(TRIG, GPIO.HIGH)
         time.sleep(0.00001)
         GPIO.output(TRIG, GPIO.LOW)
@@ -40,15 +46,17 @@ def read_dist(TRIG, ECHO, dist_list, dist_idx):
                 if dist > max:
                     max = dist
             
-            dist_list[dist_idx] = (sum - min - max) / 3
-            print(f"idx {dist_idx} / dist {dist_list[dist_idx]}")
+            avg = (sum - min - max) / 3
+            lock.acquire()
+            print(f"idx {dist_idx} / dist {avg}")
+            lock.release()
 
 
 if __name__ == '__main__':
     LEFTMOTOR_PIN = 12
     RIGHTMOTOR_PIN = 13
-    LEFT_TRIG = 2
-    LEFT_ECHO = 3
+    LEFT_TRIG = 17
+    LEFT_ECHO = 27
     FRONT_TRIG = 4
     FRONT_ECHO = 14
     RIGHT_TRIG = 15
@@ -69,11 +77,12 @@ if __name__ == '__main__':
     leftSonic_thread = Thread(target=read_dist, args=(LEFT_TRIG, LEFT_ECHO, dist, LEFT_DIST_IDX))
     frontSonic_thread = Thread(target=read_dist, args=(FRONT_TRIG, FRONT_ECHO, dist, FRONT_DIST_IDX))
     rightSonic_thread = Thread(target=read_dist, args=(RIGHT_TRIG, RIGHT_ECHO, dist, RIGHT_DIST_IDX))
-#    leftMotor_thread = Thread(target=control_leftMotor, args=(dist,))
+    #leftMotor_thread = Thread(target=control_leftMotor, args=(dist,))
 
     leftSonic_thread.start()
     frontSonic_thread.start()
     rightSonic_thread.start()
+    
     
     leftSonic_thread.join()
     frontSonic_thread.join()
