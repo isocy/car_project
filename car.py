@@ -20,7 +20,7 @@ def read_dist(TRIG, ECHO, dist_list, dist_idx):
     dist_hist = []
     
     while True:
-        time.sleep(0.1)
+        time.sleep(0.3)
         GPIO.output(TRIG, GPIO.HIGH)
         time.sleep(0.00001)
         GPIO.output(TRIG, GPIO.LOW)
@@ -47,6 +47,7 @@ def read_dist(TRIG, ECHO, dist_list, dist_idx):
                     max = dist
             
             avg = (sum - min - max) / 3
+        
             lock.acquire()
             print(f"idx {dist_idx} / dist {avg}")
             lock.release()
@@ -59,8 +60,8 @@ if __name__ == '__main__':
     LEFT_ECHO = 27
     FRONT_TRIG = 4
     FRONT_ECHO = 14
-    RIGHT_TRIG = 15
-    RIGHT_ECHO = 18
+    RIGHT_TRIG = 22
+    RIGHT_ECHO = 23
     
     LEFT_DIST_IDX = 0
     FRONT_DIST_IDX = 1
