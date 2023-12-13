@@ -3,24 +3,29 @@ import time
 
 import RPi.GPIO as GPIO
 
-
+forward_limit = 30
+side_limit = 30
 lock = Lock()
 
 GPIO.setwarnings(False)
-
-
-def control_motor(MOTOR, dist_list):
-    GPIO.setup(MOTOR, GPIO.OUT)
-    pwm = GPIO.PWM(MOTOR, 100)
-    pwm.start(0)
-    
-    while True:
-        time.sleep(0.05)
-        if dist_list[1] > 20:
-            pwm.ChangeDutyCycle(25)
-        else:
-            pwm.ChangeDutyCycle(0)
-
+LEFT_MOTOR = 12
+RIGHT_MOTOR = 13
+LEFT_TRIG = 17
+LEFT_ECHO = 27
+FRONT_TRIG = 6
+FRONT_ECHO = 26
+RIGHT_TRIG = 5
+RIGHT_ECHO = 23
+in1 = 22
+in2 =24
+in3 =16 
+in4 =10
+LEFT_MOTOR = 18
+RIGHT_MOTOR = 8
+LEFT_DIST_IDX = 0
+FRONT_DIST_IDX = 1
+RIGHT_DIST_IDX = 2
+dist = [0 for i in range(3)]
 def read_dist(TRIG, ECHO, dist_list, dist_idx):
     GPIO.setup(TRIG, GPIO.OUT)
     GPIO.setup(ECHO, GPIO.IN)
@@ -29,17 +34,28 @@ def read_dist(TRIG, ECHO, dist_list, dist_idx):
     dist_hist = []
     
     while True:
-        time.sleep(0.3)
+        time.sleep(0.01)
         GPIO.output(TRIG, GPIO.HIGH)
         time.sleep(0.00001)
         GPIO.output(TRIG, GPIO.LOW)
         
-        while GPIO.input(ECHO) == GPIO.LOW:
+        temp_start = GPIO.input(ECHO)
+        start_time = time.time()
+        start_pre_time = start_time
+        while temp_start == GPIO.LOW:
+            temp_start = GPIO.input(ECHO)
             start_time = time.time()
-        while GPIO.input(ECHO) == GPIO.HIGH:
+            if start_time-start_pre_time > 0.1:
+                temp_start = GPIO.HIGH
+        temp_end = GPIO.input(ECHO)
+        stop_time = time.time()
+        stop_pre_time = stop_time
+        while temp_end == GPIO.HIGH:
+            temp_end = GPIO.input(ECHO)
             stop_time = time.time()
+            if stop_time - stop_pre_time > 0.1:
+                temp_end = GPIO.LOW
         cur_dist = ((stop_time - start_time) * 340 * 100) / 2
-        
         if len(dist_hist) < 5:
             dist_hist.append(cur_dist)
         else:
@@ -56,48 +72,99 @@ def read_dist(TRIG, ECHO, dist_list, dist_idx):
                     max = dist
             
             avg = (sum - min - max) / 3
+            dist_list[dist_idx] = avg
+            
         
-            lock.acquire()
-            print(f"idx {dist_idx} / dist {avg}")
-            lock.release()
 
-
+def forward(left_pwm,right_pwm):
+    left_pwm.start(50)
+    right_pwm.start(50)
+    GPIO.output(in1,GPIO.HIGH)
+    GPIO.output(in2,GPIO.LOW)
+    GPIO.output(in3,GPIO.HIGH)
+    GPIO.output(in4,GPIO.LOW)
+def turn_left(left_pwm,right_pwm):
+    left_pwm.start(50)
+    right_pwm.start(50)
+    GPIO.output(in1,GPIO.LOW)
+    GPIO.output(in2,GPIO.HIGH)
+    GPIO.output(in3,GPIO.HIGH)
+    GPIO.output(in4,GPIO.LOW)
+    
+def turn_right(left_pwm,right_pwm):
+    left_pwm.start(50)
+    right_pwm.start(50)
+    GPIO.output(in1,GPIO.HIGH)
+    GPIO.output(in2,GPIO.LOW)
+    GPIO.output(in3,GPIO.LOW)
+    GPIO.output(in4,GPIO.HIGH)
+    
+def backward(left_pwm,right_pwm):
+    left_pwm.start(50)
+    right_pwm.start(50)
+    GPIO.output(in1,GPIO.LOW)
+    GPIO.output(in2,GPIO.HIGH)
+    GPIO.output(in3,GPIO.LOW)
+    GPIO.output(in4,GPIO.HIGH)
+    
 if __name__ == '__main__':
-    LEFT_MOTOR = 12
-    RIGHT_MOTOR = 13
-    LEFT_TRIG = 17
-    LEFT_ECHO = 27
-    FRONT_TRIG = 4
-    FRONT_ECHO = 14
-    RIGHT_TRIG = 22
-    RIGHT_ECHO = 23
     
-    LEFT_DIST_IDX = 0
-    FRONT_DIST_IDX = 1
-    RIGHT_DIST_IDX = 2
     
-    PWM_FREQ = 100
     
-    MAX_DISTANCE = 400
-    dist = [MAX_DISTANCE for i in range(3)]
     
+    PWM_FREQ=1000
     GPIO.setmode(GPIO.BCM)
-    
+    GPIO.setup(in1,GPIO.OUT)
+    GPIO.setup(in2,GPIO.OUT)
+    GPIO.setup(in3,GPIO.OUT)
+    GPIO.setup(in4,GPIO.OUT)
+    GPIO.setup(LEFT_MOTOR,GPIO.OUT)
+    GPIO.setup(RIGHT_MOTOR,GPIO.OUT)
+    GPIO.output(in1,GPIO.LOW)
+    GPIO.output(in3,GPIO.LOW)
+    GPIO.output(in2,GPIO.LOW)
+    GPIO.output(in4,GPIO.LOW)
     
     leftSonic_thread = Thread(target=read_dist, args=(LEFT_TRIG, LEFT_ECHO, dist, LEFT_DIST_IDX))
     frontSonic_thread = Thread(target=read_dist, args=(FRONT_TRIG, FRONT_ECHO, dist, FRONT_DIST_IDX))
     rightSonic_thread = Thread(target=read_dist, args=(RIGHT_TRIG, RIGHT_ECHO, dist, RIGHT_DIST_IDX))
-    leftMotor_thread = Thread(target=control_motor, args=(LEFT_MOTOR, dist))
-    rightMotor_thread = Thread(target=control_motor, args=(RIGHT_MOTOR, dist))
 
     leftSonic_thread.start()
     frontSonic_thread.start()
     rightSonic_thread.start()
-    leftMotor_thread.start()
-    rightMotor_thread.start()
+
+
+    GPIO.setup(LEFT_MOTOR, GPIO.OUT)
+    GPIO.setup(RIGHT_MOTOR, GPIO.OUT)
+    left_pwm = GPIO.PWM(LEFT_MOTOR, PWM_FREQ)
+    right_pwm = GPIO.PWM(RIGHT_MOTOR, PWM_FREQ)
     
-    leftSonic_thread.join()
-    frontSonic_thread.join()
-    rightSonic_thread.join()
-    leftMotor_thread.join()
-    rightMotor_thread.join()
+
+    
+    left_pwm.start(50)
+    right_pwm.start(50)
+    
+    try:   
+        while True:
+            time.sleep(0.03)
+            if dist[FRONT_DIST_IDX]>forward_limit and dist[RIGHT_DIST_IDX]>side_limit and dist[LEFT_DIST_IDX]>side_limit:
+                forward(left_pwm,right_pwm)
+                
+            elif dist[FRONT_DIST_IDX]>forward_limit and dist[RIGHT_DIST_IDX]>side_limit and dist[LEFT_DIST_IDX]<=side_limit:
+                turn_right(left_pwm,right_pwm)
+                
+            elif dist[FRONT_DIST_IDX]>forward_limit and dist[RIGHT_DIST_IDX]<=side_limit and dist[LEFT_DIST_IDX]>side_limit:
+                turn_left(left_pwm,right_pwm)   
+            elif dist[FRONT_DIST_IDX]<=forward_limit and dist[RIGHT_DIST_IDX]>side_limit and dist[LEFT_DIST_IDX]<=side_limit:
+                turn_right(left_pwm,right_pwm)
+            elif dist[FRONT_DIST_IDX]<=forward_limit and dist[RIGHT_DIST_IDX]<=side_limit and dist[LEFT_DIST_IDX]>side_limit:
+                turn_left(left_pwm,right_pwm)
+            elif dist[FRONT_DIST_IDX]<=forward_limit and dist[RIGHT_DIST_IDX]<=side_limit and dist[LEFT_DIST_IDX]<=side_limit:
+                turn_right(left_pwm,right_pwm)
+
+                    
+    except KeyboardInterrupt:
+        GPIO.cleanup()
+        exit(0)
+                
+
